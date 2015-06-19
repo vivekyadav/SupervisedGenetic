@@ -7,9 +7,10 @@
 //
 
 #include <iostream>
+#include "SuperGenetic.cpp"
 
 int main(int argc, const char * argv[]) {
-    // insert code here...
-    std::cout << "Hello, World!\n";
+    SuperGenetic::TSPSolver solver = SuperGenetic::TSPSolver(14, 10, 100, 5, 1);
+    solver.solve();
     return 0;
 }
