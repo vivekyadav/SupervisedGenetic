@@ -7,7 +7,9 @@
 //
 
 #include <algorithm>
+#include <cassert>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <numeric>
 #include <random>
@@ -72,13 +74,15 @@ namespace SuperGenetic {
         }
         
         void solve() {
-            for (int i = 0; i < 5; i++) {
+			int i = 0;
+            do {
+				std::cout << "\nGeneration " << i++;
                 crossover();
                 //std::cout<<"\nNew Generation :\n";
                 //print_population();
                 mutate();
-                //supervised_mutate();
-            }
+                supervised_mutate();
+			} while (fitness(best_chromosome.begin(), best_chromosome.end()) > CHROMOSOME_SIZE);
         }
         
         void crossover() {
@@ -160,11 +164,12 @@ namespace SuperGenetic {
                     best_chromosome = X;
                 }
             }
-            std::cout<<"\nBest Chromosome = ";print_chromosome(best_chromosome);std::cout<<" Fitness = "<<fitness(best_chromosome.begin(), best_chromosome.end());
+            //std::cout<<"\nBest Chromosome = ";print_chromosome(best_chromosome);std::cout<<" Fitness = "<<fitness(best_chromosome.begin(), best_chromosome.end());
         }
         
-        void supervised_mutation() {
+        void supervised_mutate() {
             auto dgs = find_DGS(best_chromosome);
+			auto cured_dgs = nearest_neighbour_solver(std::vector<int>(std::get<0>(dgs), std::get<1>(dgs)));
         }
         
         std::tuple<Chromosome::iterator, Chromosome::iterator> find_DGS(Chromosome X) {
@@ -184,7 +189,35 @@ namespace SuperGenetic {
             }
             return std::make_tuple(start, end);
         }
-        
+    
+		std::vector<int> nearest_neighbour_solver(const std::vector<int> cities) {
+			std::vector<int> visited_cities;
+			std::set<int> unvisited_cities(cities.begin(), cities.end());
+			int current_city = *unvisited_cities.begin();
+			visited_cities.push_back(current_city);
+			unvisited_cities.erase(current_city);
+			for (int i = 0; i < cities.size() - 1; ++i) {
+				current_city = find_nearest_city(current_city, unvisited_cities);
+				visited_cities.push_back(current_city);
+				unvisited_cities.erase(current_city);
+			}
+			return visited_cities;
+		}
+
+		int find_nearest_city(const int city, const std::set<int> unvisited_cities) {
+			assert(unvisited_cities.size() != 0);
+			float shortest_distance = 0;
+			int nearest_city = *unvisited_cities.begin();
+			for (int current_city : unvisited_cities) {
+				int current_distance = distance(current_city, city);
+				if (current_distance < shortest_distance) {
+					shortest_distance = current_distance;
+					nearest_city = current_city;
+				}
+			}
+			return nearest_city;
+		}
+
     private:
         bool chromosomes_can_be_overlapped(Chromosome X, Chromosome Y, int point_of_overlap) {
             std::vector<Gene> intersection1;
@@ -234,5 +267,12 @@ namespace SuperGenetic {
             //assign random postitions to Geness/cities
             //std::vector<std::tuplepositions
         }
+
+		float distance(const Gene geneX, const Gene geneY) {
+			return std::abs(geneX - geneY);
+		}
+
+		
     };
+
 }
