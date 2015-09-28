@@ -7,10 +7,12 @@
 //
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <iostream>
 #include <iterator>
 #include <map>
+#include <cmath>
 #include <numeric>
 #include <random>
 #include <set>
@@ -27,20 +29,42 @@ namespace SuperGenetic {
         const int POPULATION_SIZE;
         const int MUTATION_POINTS;
         const int MAX_SUBSECTIONS;
+		const std::map<int, std::array<int, 2 >> COORDINATES;
+		std::map<std::array<int, 2>, float> distances;
+
         std::vector<Chromosome> population;
-        const std::map<std::set<int>, float> distances;
         Chromosome best_chromosome;
         
         // The constructor that initialitzes all constants
-        TSPSolver(int chromosome_size, int dgs_size, int population_size, int mutation_points, int max_subsections) :
-        CHROMOSOME_SIZE(chromosome_size), DGS_SIZE(dgs_size), POPULATION_SIZE(population_size), MUTATION_POINTS(mutation_points), MAX_SUBSECTIONS(max_subsections) {
+        TSPSolver(const std::map<int, std::array<int, 2 >> coordinates, int chromosome_size,
+			int dgs_size, int population_size, int mutation_points, int max_subsections) :
+			COORDINATES(coordinates), CHROMOSOME_SIZE(chromosome_size), DGS_SIZE(dgs_size), POPULATION_SIZE(population_size), MUTATION_POINTS(mutation_points), MAX_SUBSECTIONS(max_subsections) {
             std::cout<<"City = "<< CHROMOSOME_SIZE<<"\n";
             std::cout<<"DGS = "<< DGS_SIZE<<"\n";
             std::cout<<"population = "<< POPULATION_SIZE<<"\n";
+			calculate_inter_city_distances();
             this->populate();
             this->print_population();
         }
         
+		void calculate_inter_city_distances() {
+			for (int x = 0; x < CHROMOSOME_SIZE - 1; ++x) {
+				for (int y = x + 1; y < CHROMOSOME_SIZE; ++y) {
+					std::array<int, 2> cityX_coordinates = COORDINATES.find(x + 1)->second;
+					std::array<int, 2> cityY_coordinates = COORDINATES.find(y + 1)->second;
+					auto cities = std::array<int, 2> {x, y};
+					distances[cities] = std::sqrt(std::pow(cityX_coordinates[0] - cityY_coordinates[0], 2) +
+						std::pow(cityX_coordinates[1] - cityY_coordinates[1], 2));
+				}
+			}
+		}
+
+		float distance(int cityX, int cityY) {
+			auto city_pair = std::array<int, 2> {cityX, cityY};
+			std::sort(city_pair.begin(), city_pair.end());
+			return distances[city_pair];
+		}
+
         void populate() {
             std::random_device rd;
             std::mt19937 random_engine(rd());
@@ -55,9 +79,6 @@ namespace SuperGenetic {
                 population.push_back(Chromosome(base_chromosome));
             }
             best_chromosome = population.at(0);
-            
-            //Calculate distance
-            calculate_distances();
         }
         
         void print_population() {
@@ -196,7 +217,7 @@ namespace SuperGenetic {
 			int current_city = *unvisited_cities.begin();
 			visited_cities.push_back(current_city);
 			unvisited_cities.erase(current_city);
-			for (int i = 0; i < cities.size() - 1; ++i) {
+			for (unsigned int i = 0; i < cities.size() - 1; ++i) {
 				current_city = find_nearest_city(current_city, unvisited_cities);
 				visited_cities.push_back(current_city);
 				unvisited_cities.erase(current_city);
@@ -209,7 +230,7 @@ namespace SuperGenetic {
 			float shortest_distance = 0;
 			int nearest_city = *unvisited_cities.begin();
 			for (int current_city : unvisited_cities) {
-				int current_distance = distance(current_city, city);
+				float current_distance = distance(current_city, city);
 				if (current_distance < shortest_distance) {
 					shortest_distance = current_distance;
 					nearest_city = current_city;
@@ -239,7 +260,7 @@ namespace SuperGenetic {
             }
             start++;
             while (start != end) {
-                total_distance += abs(*start - first);
+				total_distance += distance( *start, first);
                 first = *start;
                 start++;
             }
@@ -262,15 +283,7 @@ namespace SuperGenetic {
             }
             return best_chromosome;
         }
-        
-        void calculate_distances() {
-            //assign random postitions to Geness/cities
-            //std::vector<std::tuplepositions
-        }
 
-		float distance(const Gene geneX, const Gene geneY) {
-			return std::abs(geneX - geneY);
-		}
 
 		
     };
