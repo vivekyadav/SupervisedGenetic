@@ -20,9 +20,6 @@
 
 namespace SuperGenetic {
     
-    typedef int Gene;
-    typedef std::vector<Gene> Chromosome;
-    
     struct TSPSolver {
         const int CHROMOSOME_SIZE;
         const int DGS_SIZE;
@@ -32,8 +29,8 @@ namespace SuperGenetic {
 		const std::map<int, std::array<int, 2 >> COORDINATES;
 		std::map<std::array<int, 2>, float> distances;
 
-        std::vector<Chromosome> population;
-        Chromosome best_chromosome;
+        std::vector<std::vector<int>> population;
+		std::vector<int> best_chromosome;
         
         // The constructor that initialitzes all constants
         TSPSolver(const std::map<int, std::array<int, 2 >> coordinates, int chromosome_size,
@@ -69,14 +66,14 @@ namespace SuperGenetic {
             std::random_device rd;
             std::mt19937 random_engine(rd());
             
-            Chromosome base_chromosome(CHROMOSOME_SIZE);
+			std::vector<int> base_chromosome(CHROMOSOME_SIZE);
             // fill city_list from from 0 to CHROMOSOME_SIZE - 1
             std::iota(base_chromosome.begin(), base_chromosome.end(), 0);
             
             // Create Chromosomes by permutating the list of cities
             for (auto i = 0; i < POPULATION_SIZE; i++) {
                 std::shuffle(base_chromosome.begin(), base_chromosome.end(), random_engine);
-                population.push_back(Chromosome(base_chromosome));
+                population.push_back(base_chromosome);
             }
             best_chromosome = population.at(0);
         }
@@ -88,7 +85,7 @@ namespace SuperGenetic {
             }
         }
         
-        void print_chromosome(const Chromosome chromosome) {
+        void print_chromosome(const std::vector<int> chromosome) {
             for(auto gene : chromosome) {
                 std::cout<<gene<<"|";
             }
@@ -101,13 +98,16 @@ namespace SuperGenetic {
                 crossover();
                 //std::cout<<"\nNew Generation :\n";
                 //print_population();
+				std::cout << "\nCrossover done. Mutating.....";
                 mutate();
+				std::cout << "\nMutaion done..";
                 supervised_mutate();
+				std::cout << "\nSupervised Mutaion done..";
 			} while (fitness(best_chromosome.begin(), best_chromosome.end()) > CHROMOSOME_SIZE);
         }
         
         void crossover() {
-            std::vector<Chromosome> new_generation;
+            std::vector<std::vector<int>> new_generation;
             std::random_device rd;
             std::mt19937 random_engine(rd());
             std::uniform_int_distribution<> population_distribution(0, POPULATION_SIZE - 1);
@@ -115,8 +115,8 @@ namespace SuperGenetic {
             
             for (int i = 0; i < POPULATION_SIZE; i++) {
                 // Select 2 chromosomes
-                Chromosome X = population.at(population_distribution(random_engine));
-                Chromosome Y = population.at(population_distribution(random_engine));
+				std::vector<int> X = population.at(population_distribution(random_engine));
+				std::vector<int> Y = population.at(population_distribution(random_engine));
                 
                 //std::cout<<"\nSelected X = ";print_chromosome(X);
                 //std::cout<<"\nSelected Y = ";print_chromosome(Y);
@@ -131,7 +131,7 @@ namespace SuperGenetic {
                 
                 //std::cout<<"\nOverlapping Chromosomes at position : "<< point_of_overlap <<"\n";
                 
-                Chromosome X_part1(point_of_overlap), X_part2(CHROMOSOME_SIZE - point_of_overlap), Y_part1(point_of_overlap), Y_part2(CHROMOSOME_SIZE - point_of_overlap);
+				std::vector<int> X_part1(point_of_overlap), X_part2(CHROMOSOME_SIZE - point_of_overlap), Y_part1(point_of_overlap), Y_part2(CHROMOSOME_SIZE - point_of_overlap);
                 // Partition X into 2 parts
                 std::partition_copy(X.begin(), X.end(), X_part1.begin(), X_part2.begin(),
                                     [=] (int i) {return i < point_of_overlap;});
@@ -139,7 +139,7 @@ namespace SuperGenetic {
                 std::partition_copy(Y.begin(), Y.end(), Y_part1.begin(), Y_part2.begin(),
                                     [=] (int i) {return i < point_of_overlap;});
                 
-                Chromosome child1, child2;
+				std::vector<int> child1, child2;
                 // Child_1 = X_part1 + Y_part2
                 child1.insert(child1.end(), X_part1.begin(), X_part1.end());
                 child1.insert(child1.end(), Y_part2.begin(), Y_part2.end());
@@ -149,7 +149,7 @@ namespace SuperGenetic {
                 child2.insert(child2.end(), X_part2.begin(), X_part2.end());
                 
                 //std::cout<<"\nOverlapping Complete. Selecting Best Chromosome... !\n";
-                Chromosome current_best_chromosome = find_best_chromosome(std::vector<Chromosome>{X,Y,child1,child2});
+				std::vector<int> current_best_chromosome = find_best_chromosome(std::vector<std::vector<int>>{X,Y,child1,child2});
                 // Add best to new generation
                 new_generation.push_back(current_best_chromosome);
                 
@@ -171,11 +171,11 @@ namespace SuperGenetic {
             std::uniform_int_distribution<> chromosome_distribution(0, CHROMOSOME_SIZE - 1);
             
             for(int i = 0; i < MUTATION_POINTS; i++) {
-                Chromosome X = population.at(population_distribution(random_engine));
+				std::vector<int> X = population.at(population_distribution(random_engine));
                 int gene_to_mutate = chromosome_distribution(random_engine);
                 
                 // Swap adjacent Genes.
-                Gene temp = X[gene_to_mutate];
+                int temp = X[gene_to_mutate];
                 X[gene_to_mutate] = X[(gene_to_mutate+1)%CHROMOSOME_SIZE];
                 X[(gene_to_mutate+1)%CHROMOSOME_SIZE] = temp;
                 
@@ -188,12 +188,18 @@ namespace SuperGenetic {
             //std::cout<<"\nBest Chromosome = ";print_chromosome(best_chromosome);std::cout<<" Fitness = "<<fitness(best_chromosome.begin(), best_chromosome.end());
         }
         
+		/**
+		==Supervised Mutation==
+		Here we find a diseased gene sequence (DGS) by comparing the fitness of subsections
+		of the best chromosome in a manner similar to binary search and then optimize it and
+		replace the DGS with the optimized one. 
+		*/
         void supervised_mutate() {
-            auto dgs = find_DGS(best_chromosome);
-			auto cured_dgs = nearest_neighbour_solver(std::vector<int>(std::get<0>(dgs), std::get<1>(dgs)));
+			auto cured_dgs = nearest_neighbour_solver(find_DGS(best_chromosome));
+			// TODO: replace the DGS in population
         }
         
-        std::tuple<Chromosome::iterator, Chromosome::iterator> find_DGS(Chromosome X) {
+        std::vector<int> find_DGS(std::vector<int> X) {
             auto start = X.begin();
             auto end = X.end();
             // find Diseased Gene Sequence
@@ -208,7 +214,9 @@ namespace SuperGenetic {
                     start = start + mid;
                 }
             }
-            return std::make_tuple(start, end);
+			std::vector<int> dgs;
+			std::copy(start, end, std::back_inserter(dgs));
+            return dgs;
         }
     
 		std::vector<int> nearest_neighbour_solver(const std::vector<int> cities) {
@@ -240,11 +248,18 @@ namespace SuperGenetic {
 		}
 
     private:
-        bool chromosomes_can_be_overlapped(Chromosome X, Chromosome Y, int point_of_overlap) {
-            std::vector<Gene> intersection1;
-            std::vector<Gene> intersection2;
-            std::set_intersection(X.begin(), X.begin() + point_of_overlap, Y.begin() + point_of_overlap, Y.end(), std::back_inserter(intersection1));
-            std::set_intersection(Y.begin(), Y.begin() + point_of_overlap, X.begin() + point_of_overlap, X.end(), std::back_inserter(intersection2));
+        bool chromosomes_can_be_overlapped(const std::vector<int> X, const std::vector<int> Y, int point_of_overlap) {
+            std::vector<int> intersection1;
+            std::vector<int> intersection2;
+			std::vector<int> orderedX;
+			std::vector<int> orderedY;
+			std::copy(X.begin(), X.end(), std::back_inserter(orderedX));
+			std::copy(Y.begin(), Y.end(), std::back_inserter(orderedY));
+			std::sort(orderedX.begin(), orderedX.end());
+			std::sort(orderedY.begin(), orderedY.end());
+
+            std::set_intersection(orderedX.begin(), orderedX.begin() + point_of_overlap, orderedY.begin() + point_of_overlap, orderedY.end(), std::back_inserter(intersection1));
+            std::set_intersection(orderedY.begin(), orderedY.begin() + point_of_overlap, orderedX.begin() + point_of_overlap, orderedX.end(), std::back_inserter(intersection2));
             if (intersection1.size() > 0 || intersection2.size() > 0) {
                 return false;
             }
@@ -252,9 +267,9 @@ namespace SuperGenetic {
         }
         
         // Lower the Better
-        float fitness(Chromosome::iterator start, Chromosome::iterator end) {
+        float fitness(std::vector<int>::iterator start, std::vector<int>::iterator end) {
             float total_distance = 0;
-            Gene first = 0;
+            int first = 0;
             if(start != end) {
                 first = *start;
             }
@@ -267,11 +282,11 @@ namespace SuperGenetic {
             return total_distance;
         }
         
-        Chromosome find_best_chromosome(const std::vector<Chromosome> chromosomes) {
+		std::vector<int> find_best_chromosome(const std::vector<std::vector<int>> chromosomes) {
             if (chromosomes.size() == 0) {
                 throw std::invalid_argument("Empty list of Chromosomes is not acceptable");
             }
-            Chromosome best_chromosome = chromosomes.at(0);
+			std::vector<int> best_chromosome = chromosomes.at(0);
             float best_fitness = fitness(best_chromosome.begin(), best_chromosome.end());
             for (auto chromosome : chromosomes) {
                 float current_fitness = fitness(chromosome.begin(), chromosome.end());
