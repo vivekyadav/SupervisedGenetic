@@ -13,20 +13,24 @@
 #include <iterator>
 #include <map>
 #include <cmath>
+#include <memory>
 #include <numeric>
 #include <random>
 #include <set>
+#include <spdlog.h>
 #include <vector>
 
 namespace SuperGenetic {
     
+	namespace spd = spdlog;
     struct TSPSolver {
         const int CHROMOSOME_SIZE;
-        const int DGS_SIZE;
         const int POPULATION_SIZE;
         const int MUTATION_POINTS;
         const int MAX_SUBSECTIONS;
 		const std::map<int, std::array<int, 2 >> COORDINATES;
+		const std::string LOG_FILENAME = std::string("C:\\Users\\vivek\\Documents\\Visual Studio 2015\\Projects\\SuperGenetic\\log");
+		std::shared_ptr<spd::logger> logger;
 		std::map<std::array<int, 2>, float> distances;
 
         std::vector<std::vector<int>> population;
@@ -34,14 +38,18 @@ namespace SuperGenetic {
         
         // The constructor that initialitzes all constants
         TSPSolver(const std::map<int, std::array<int, 2 >> coordinates, int chromosome_size,
-			int dgs_size, int population_size, int mutation_points, int max_subsections) :
-			COORDINATES(coordinates), CHROMOSOME_SIZE(chromosome_size), DGS_SIZE(dgs_size), POPULATION_SIZE(population_size), MUTATION_POINTS(mutation_points), MAX_SUBSECTIONS(max_subsections) {
-            std::cout<<"City = "<< CHROMOSOME_SIZE<<"\n";
-            std::cout<<"DGS = "<< DGS_SIZE<<"\n";
-            std::cout<<"population = "<< POPULATION_SIZE<<"\n";
+			int population_size, int mutation_points, int max_subsections) :
+			COORDINATES(coordinates), CHROMOSOME_SIZE(chromosome_size), POPULATION_SIZE(population_size),
+			MUTATION_POINTS(mutation_points), MAX_SUBSECTIONS(max_subsections) {
+
+			logger = spd::rotating_logger_mt("file_logger", LOG_FILENAME, 1048576 * 5, 3);
+			logger->set_pattern("%v");
+            logger->info("") <<"City = "<< CHROMOSOME_SIZE<<"\n";
+            logger->info("") <<"population = "<< POPULATION_SIZE<<"\n";
+
 			calculate_inter_city_distances();
             this->populate();
-            this->print_population();
+            //this->print_population();
         }
         
 		void calculate_inter_city_distances() {
@@ -50,10 +58,37 @@ namespace SuperGenetic {
 					std::array<int, 2> cityX_coordinates = COORDINATES.find(x + 1)->second;
 					std::array<int, 2> cityY_coordinates = COORDINATES.find(y + 1)->second;
 					auto cities = std::array<int, 2> {x, y};
-					distances[cities] = std::sqrt(std::pow(cityX_coordinates[0] - cityY_coordinates[0], 2) +
-						std::pow(cityX_coordinates[1] - cityY_coordinates[1], 2));
+					distances[cities] = round(std::sqrt(std::pow(cityX_coordinates[0] - cityY_coordinates[0], 2) +
+						std::pow(cityX_coordinates[1] - cityY_coordinates[1], 2)));
+					//distances[cities] = psuedo_euclidian_distance(cityX_coordinates[0], cityX_coordinates[1],
+					//	cityY_coordinates[0], cityY_coordinates[1]);
 				}
 			}
+		}
+
+		int psuedo_euclidian_distance(const int& x1,
+			const int& x2,
+			const int& y1,
+			const int& y2) {
+			int dij = 0;
+
+			int xd = x1 - x2;
+			int yd = y1 - y2;
+
+			double rij = sqrt((xd*xd + yd*yd) / 10.0);
+
+			int tij = round(rij);
+
+			if (tij < rij)
+			{
+				dij = tij + 1;
+			}
+			else
+			{
+				dij = tij;
+			}
+
+			return dij;
 		}
 
 		float distance(int cityX, int cityY) {
@@ -81,28 +116,36 @@ namespace SuperGenetic {
         void print_population() {
             for(auto chromosome : population) {
                 print_chromosome(chromosome);
-                std::cout<<" F = "<<fitness(chromosome.begin(), chromosome.end())<<"\n";
+                logger->info("")<<" F = "<<fitness(chromosome.begin(), chromosome.end())<<"\n";
             }
         }
         
         void print_chromosome(const std::vector<int> chromosome) {
+			std::string output;
             for(auto gene : chromosome) {
-                std::cout<<gene<<"|";
+				output.append(std::to_string(gene));
+				output.append("|");
             }
+			logger->info(output);
         }
         
         void solve() {
 			int i = 0;
             do {
-				std::cout << "\nGeneration " << i++;
+				logger->info("") << "\nGeneration " << i++;
+				std::cout << "\nGeneration " << i;
                 crossover();
-                //std::cout<<"\nNew Generation :\n";
+                //logger->info("")<<"\nNew Generation :\n";
                 //print_population();
-				std::cout << "\nCrossover done. Mutating.....";
+				//logger->info("") << "\nCrossover done. Mutating.....";
                 mutate();
-				std::cout << "\nMutaion done..";
+				//logger->info("") << "\nMutaion done..";
                 supervised_mutate();
-				std::cout << "\nSupervised Mutaion done..";
+				//logger->info("") << "\nSupervised Mutaion done..";
+				print_chromosome(best_chromosome);
+				const float best_distance = fitness(best_chromosome.begin(), best_chromosome.end());
+				logger->info("") << "\n Distance is " << best_distance;
+				std::cout << "\n Distance is " << best_distance;
 			} while (fitness(best_chromosome.begin(), best_chromosome.end()) > CHROMOSOME_SIZE);
         }
         
@@ -118,8 +161,8 @@ namespace SuperGenetic {
 				std::vector<int> X = population.at(population_distribution(random_engine));
 				std::vector<int> Y = population.at(population_distribution(random_engine));
                 
-                //std::cout<<"\nSelected X = ";print_chromosome(X);
-                //std::cout<<"\nSelected Y = ";print_chromosome(Y);
+                //logger->info("")<<"\nSelected X = ";print_chromosome(X);
+                //logger->info("")<<"\nSelected Y = ";print_chromosome(Y);
                 
                 // Overlap both chromosome if possible
                 int point_of_overlap = chromosome_distribution(random_engine);
@@ -129,7 +172,7 @@ namespace SuperGenetic {
                     continue;
                 }
                 
-                //std::cout<<"\nOverlapping Chromosomes at position : "<< point_of_overlap <<"\n";
+                //logger->info("")<<"\nOverlapping Chromosomes at position : "<< point_of_overlap <<"\n";
                 
 				std::vector<int> X_part1(point_of_overlap), X_part2(CHROMOSOME_SIZE - point_of_overlap), Y_part1(point_of_overlap), Y_part2(CHROMOSOME_SIZE - point_of_overlap);
                 // Partition X into 2 parts
@@ -148,7 +191,7 @@ namespace SuperGenetic {
                 child2.insert(child2.end(), Y_part1.begin(), Y_part1.end());
                 child2.insert(child2.end(), X_part2.begin(), X_part2.end());
                 
-                //std::cout<<"\nOverlapping Complete. Selecting Best Chromosome... !\n";
+                //logger->info("")<<"\nOverlapping Complete. Selecting Best Chromosome... !\n";
 				std::vector<int> current_best_chromosome = find_best_chromosome(std::vector<std::vector<int>>{X,Y,child1,child2});
                 // Add best to new generation
                 new_generation.push_back(current_best_chromosome);
@@ -161,7 +204,7 @@ namespace SuperGenetic {
             }
             
             this->population = new_generation;
-            //std::cout<<"\nBest Chromosome = ";print_chromosome(best_chromosome);
+            //logger->info("")<<"\nBest Chromosome = ";print_chromosome(best_chromosome);
         }
         
         void mutate() {
@@ -172,32 +215,81 @@ namespace SuperGenetic {
             
             for(int i = 0; i < MUTATION_POINTS; i++) {
 				std::vector<int> X = population.at(population_distribution(random_engine));
-                int gene_to_mutate = chromosome_distribution(random_engine);
                 
                 // Swap adjacent Genes.
+                int gene_to_mutate = chromosome_distribution(random_engine);
+
                 int temp = X[gene_to_mutate];
                 X[gene_to_mutate] = X[(gene_to_mutate+1)%CHROMOSOME_SIZE];
                 X[(gene_to_mutate+1)%CHROMOSOME_SIZE] = temp;
+
+                // // Swap the 2 randomly selected Genes.
+                // int gene_to_mutate1 = chromosome_distribution(random_engine);
+                // int gene_to_mutate2 = chromosome_distribution(random_engine);
                 
+                // int temp = X[gene_to_mutate1];
+                // X[gene_to_mutate1] = X[gene_to_mutate2];
+                // X[gene_to_mutate2] = temp;
+
                 // Update poulation's best chromosome
+
                 if (fitness(X.begin(), X.end()) <
                     fitness(best_chromosome.begin(), best_chromosome.end())) {
                     best_chromosome = X;
                 }
             }
-            //std::cout<<"\nBest Chromosome = ";print_chromosome(best_chromosome);std::cout<<" Fitness = "<<fitness(best_chromosome.begin(), best_chromosome.end());
+            //logger->info("")<<"\nBest Chromosome = ";print_chromosome(best_chromosome);logger->info("")<<" Fitness = "<<fitness(best_chromosome.begin(), best_chromosome.end());
         }
         
 		/**
 		==Supervised Mutation==
 		Here we find a diseased gene sequence (DGS) by comparing the fitness of subsections
 		of the best chromosome in a manner similar to binary search and then optimize it and
-		replace the DGS with the optimized one. 
+		replace the DGS with the optimized one. Only 1/4th of the population is given this replacement,
+		provided they have the dgs genes in the order. Another 1/4th of the population is
+		given the reverse of the optimized chromosome.
 		*/
         void supervised_mutate() {
-			auto cured_dgs = nearest_neighbour_solver(find_DGS(best_chromosome));
-			// TODO: replace the DGS in population
+			auto dgs = find_DGS(best_chromosome);
+			auto cured_dgs = nearest_neighbour_solver(dgs);
+			replace_dgs_with_cure(dgs, cured_dgs);
+
+			// Do the replace with reverse of cured_dgs
+			std::reverse(cured_dgs.begin(), cured_dgs.end());
+			replace_dgs_with_cure(dgs, cured_dgs);
         }
+
+		/**
+		Try and Replace 1/4th of population with cured_dgs
+		*/
+		void replace_dgs_with_cure(const std::vector<int> dgs, const std::vector<int> cured_dgs) {
+			auto dgs_size = dgs.size();
+			std::random_device rd;
+			std::mt19937 random_engine(rd());
+			std::uniform_int_distribution<> population_distribution(0, POPULATION_SIZE - 1);
+
+			for (int i = 0; i < POPULATION_SIZE / 4; ++i) {
+				std::vector<int> X = population.at(population_distribution(random_engine));
+				auto start = X.begin();
+				auto end = X.end();
+				std::vector<int> positions;
+				for (int j = 0; j < dgs_size; ++j) {
+					start = std::find(start, end, dgs[j]);
+					positions.push_back(start - X.begin());
+					if (start == end) {
+						break;
+					}
+				}
+				//if the gene from dgs were not found in the same order, move to another chromosome
+				if (start == end) {
+					continue;
+				}
+
+				for (int j = 0; j < dgs_size; ++j) {
+					X[positions[j]] = dgs[j];
+				}
+			}
+		}
         
         std::vector<int> find_DGS(std::vector<int> X) {
             auto start = X.begin();

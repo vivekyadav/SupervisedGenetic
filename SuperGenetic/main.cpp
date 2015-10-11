@@ -12,8 +12,9 @@
 
 int main(int argc, const char * argv[]) {
 	TspLib::TspDataLoader data_loader;
-	TspLib::TspData data = data_loader.load("C:\\Users\\vivek\\Desktop\\TSP\\att48.tsp");
-    SuperGenetic::TSPSolver solver = SuperGenetic::TSPSolver(data.get_all_coordinates(), data.get_cities().size(), 5, 200, 10, 3);
+	TspLib::TspData data = data_loader.load("C:\\Users\\vivek\\Desktop\\TSP\\ch130.tsp");
+	auto city_count = data.get_cities().size();
+    SuperGenetic::TSPSolver solver = SuperGenetic::TSPSolver(data.get_all_coordinates(), city_count, city_count*100, city_count*0.01, city_count/4);
     solver.solve();
 	//std::vector<int> result = solver.nearest_neighbour_solver(std::vector<int> {5, 6, 2, 3, 9});
 	//for (int i : result) {
