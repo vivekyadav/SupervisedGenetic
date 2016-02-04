@@ -18,7 +18,7 @@
 #include <numeric>
 #include <random>
 #include <set>
-#include <spdlog.h>
+#include <spdlog/spdlog.h>
 #include <vector>
 
 namespace SuperGenetic {
