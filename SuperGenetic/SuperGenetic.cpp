@@ -6,6 +6,8 @@
 //  Copyright (c) 2015 Zero. All rights reserved.
 //
 
+#include "Distance.h"
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -56,37 +58,13 @@ namespace SuperGenetic {
         void calculate_inter_city_distances() {
             for (int x = 0; x < CHROMOSOME_SIZE - 1; ++x) {
                 for (int y = x + 1; y < CHROMOSOME_SIZE; ++y) {
-                    std::array<int, 2> cityX_coordinates = COORDINATES.find(x + 1)->second;
-                    std::array<int, 2> cityY_coordinates = COORDINATES.find(y + 1)->second;
+                    auto cityX_coordinates = std::vector<int>(COORDINATES.find(x + 1)->second.begin(), COORDINATES.find(x + 1)->second.end());
+                    auto cityY_coordinates = std::vector<int>(COORDINATES.find(y + 1)->second.begin(), COORDINATES.find(y + 1)->second.end());
                     auto cities = std::array<int, 2> {x, y};
-                    distances[cities] = round(std::sqrt(std::pow(cityX_coordinates[0] - cityY_coordinates[0], 2) +
-                        std::pow(cityX_coordinates[1] - cityY_coordinates[1], 2)));
-                    //distances[cities] = psuedo_euclidian_distance(cityX_coordinates[0], cityX_coordinates[1],
-                    //	cityY_coordinates[0], cityY_coordinates[1]);
+                    distances[cities] = Distance::euclidian_distance<int>(cityX_coordinates, cityY_coordinates);
+                    //distances[cities] = Distance::psuedo_euclidian_distance(cityX_coordinates, cityX_coordinates);
                 }
             }
-        }
-
-        int psuedo_euclidian_distance(const int& x1, const int& x2, const int& y1, const int& y2) {
-            int dij = 0;
-
-            int xd = x1 - x2;
-            int yd = y1 - y2;
-
-            double rij = sqrt((xd*xd + yd*yd) / 10.0);
-
-            int tij = round(rij);
-
-            if (tij < rij)
-            {
-                dij = tij + 1;
-            }
-            else
-            {
-                dij = tij;
-            }
-
-            return dij;
         }
 
         float distance(int cityX, int cityY) {

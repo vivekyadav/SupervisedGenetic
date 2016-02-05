@@ -27,6 +27,26 @@ namespace Distance {
     }
 
     template <typename T>
+    inline int pseudo_euclidian_distance(const std::vector<T>& point1, const std::vector<T>& point2) {
+        check_dimension_equality(point1, point2);
+        int distance = 0;
+        for (int i = 0; i < point1.size(); ++i) {
+            distance += pow(point1.at(i) - point2.at(i), 2);
+        }
+        auto r = sqrt(distance)/10;
+        int t = round(r);
+
+        if (t < r) {
+            distance = t + 1;
+        }
+        else {
+            distance = t;
+        }
+
+        return distance;
+    }
+
+    template <typename T>
     inline void check_dimension_equality(const std::vector<T>& point1, const std::vector<T>& point2) {
         if (point1.size() != point2.size()) {
             throw std::exception("Given points are of unequal dimension");
